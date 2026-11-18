@@ -1,0 +1,8 @@
+# Keep files that run inside Linux containers on LF, even in a Windows checkout with core.autocrlf.
+Dockerfile text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf

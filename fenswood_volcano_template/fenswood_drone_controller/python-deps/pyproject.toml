@@ -1,0 +1,24 @@
+[project]
+name = "fenswood-mission-deps"
+version = "0.0.0"
+requires-python = "==3.8.*"
+dependencies = [
+    "opencv-python",
+    "scipy",
+    "pandas",
+    "geopandas",
+    "shapely",
+    "pyshp",
+    "haversine",
+    "matplotlib",
+    "mapclassify",
+    "tqdm",
+    "pyvisgraph",
+    "geopy",
+    "pytest",
+]
+
+[tool.uv]
+package = false
+exclude-newer = "2022-05-06T00:00:00Z"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
