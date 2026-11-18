@@ -1,5 +1,6 @@
 # from turtle import right
-import rclpy                                                    # type: ignore
+import time
+import rclpy                                                   # type: ignore
 from rclpy.node import Node
 
 # import message definitions for receiving status and position
@@ -44,7 +45,15 @@ import geopy.distance
 
 from std_msgs.msg import String
 from std_msgs.msg import Int64
+from std_msgs.msg import Float32
 
+
+# wall-clock cap for one status wait; State arrives at about 1 Hz, so this allows two missed messages
+STATUS_WAIT_TIMEOUT_S = 3.0
+STATUS_SPIN_TIMEOUT_S = 0.1
+
+# camera tilt for the search: at the default 0.78 rad the red blob was 396 px (threshold 400); looking down it is ~1979 px
+CAMERA_TILT_DOWN_RAD = 1.57
 
 #the coordinates
 # Takeoff#
@@ -132,6 +141,7 @@ class FenswoodDroneController(Node):
         self.target_pub = self.create_publisher(GeoPoseStamped, '/vehicle_1/mavros/setpoint_position/global', 10)
         self.loc_target_pub = self.create_publisher(PoseStamped, '/vehicle_1/mavros/setpoint_position/local', 10)
         self.target_twist_pub = self.create_publisher(Twist, '/vehicle_1/mavros/setpoint_velocity/cmd_vel_unstamped', 10) 
+        self.gimbal_tilt_pub = self.create_publisher(Float32, '/vehicle_1/gimbal_tilt_cmd', 10)
 
         # and make a placeholder for the last sent target
         self.last_target = GeoPoseStamped()
@@ -183,19 +193,19 @@ class FenswoodDroneController(Node):
         self.get_logger().debug('Drone at z:{}'.format(msg.twist.angular.x))
 
     def wait_for_new_status(self):
+        # spin_once returns on any message (image alerts arrive at ~20 Hz), so counting spins
+        # made a wait last ~30 ms; wait on wall-clock time for a newer State message instead
+        last_stamp = None
         if self.last_status:
-            # if had a message before, wait for higher timestamp
-            last_stamp = self.last_status.header.stamp.sec
-            for try_wait in range(60):
-                rclpy.spin_once(self)
-                if self.last_status.header.stamp.sec > last_stamp:
+            header_stamp = self.last_status.header.stamp
+            last_stamp = (header_stamp.sec, header_stamp.nanosec)
+        deadline = time.monotonic() + STATUS_WAIT_TIMEOUT_S
+        while time.monotonic() < deadline:
+            rclpy.spin_once(self, timeout_sec=STATUS_SPIN_TIMEOUT_S)
+            if self.last_status:
+                header_stamp = self.last_status.header.stamp
+                if last_stamp is None or (header_stamp.sec, header_stamp.nanosec) > last_stamp:
                     break
-        else:
-            # if never had a message, just wait for first one          
-            for try_wait in range(60):
-                if self.last_status:
-                    break
-                rclpy.spin_once(self)
 
     def request_data_stream(self,msg_id,msg_interval):
         cmd_req = CommandLong.Request()
@@ -248,6 +258,10 @@ class FenswoodDroneController(Node):
 
     def state_transition(self):
         if self.control_state =='init':
+            # no State message yet (the wait timed out); stay in init rather than crash on None
+            if self.last_status is None:
+                self.get_logger().info('Waiting for vehicle status')
+                return('init')
             if self.last_status.system_status==3:
                 self.get_logger().info('Drone initialized')
                 # send command to request regular position updates
@@ -295,7 +309,9 @@ class FenswoodDroneController(Node):
                     self.get_logger().info('Climbing, altitude {}m'.format(self.last_alt_rel))
                     return('climbing')
 
-        elif self.control_state == 'on_way1' and self.md.data == 'stand by':
+        # failsafe.py republishes 'take off' every 10 s; with ~1 s steps that right after the climb hand-off would match no
+        # branch and stop the mission, so accept it here ('rth' and 'land' still override)
+        elif self.control_state == 'on_way1' and self.md.data in ('stand by', 'take off'):
             # self.md.data= 'stand by'
             self.get_logger().info('Request sent for stand by mode.')
             fail=0
@@ -327,6 +343,11 @@ class FenswoodDroneController(Node):
         elif self.control_state == 'on_way2':
             # self.md.data= 'stand by'
             self.get_logger().info('Request sent for stand by mode.')
+            # tilt the camera down; 3 sends are a margin against a dropped message
+            for try_tilt in range(3):
+                self.gimbal_tilt_pub.publish(Float32(data=CAMERA_TILT_DOWN_RAD))
+                self.get_logger().info('Camera tilt command {} rad'.format(CAMERA_TILT_DOWN_RAD))
+                self.wait_for_new_status()
             self.yaw(-1.0)
             for try_yaw in range(100):
                 self.wait_for_new_status()
