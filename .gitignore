@@ -1,2 +1,7 @@
 /.superpowers/
 /INTERNAL/
+__pycache__/
+build/
+install/
+log/
+.venv/
