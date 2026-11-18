@@ -97,7 +97,7 @@ class ImageProcessor(Node):
         
         yellow_zones = self.operations(self.y_mask)
         red_zones = self.operations(self.r_mask)
-
+        # self.get_logger().info('area: {}'.format(red_zones[0]))
         if yellow_zones != []:
             for zone in yellow_zones:
                 if zone[0] >= 19200:
@@ -112,7 +112,7 @@ class ImageProcessor(Node):
         
         if red_zones != []:
             for zone in red_zones:
-                if zone[0] >= 192:
+                if zone[0] >= 400:
                     if zone[1][0]>160 and zone[1][0]<320:
                         self.r_alert = 'right -1'
                     elif zone[1][0]>320 and zone[1][0]<480:

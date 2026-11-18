@@ -148,7 +148,7 @@ class FenswoodDroneController(Node):
 
     def md_timer_callback(self): 
         self.md_publisher_.publish(self.md)
-        self.get_logger().info('md: {}'.format(self.md.data))
+        # self.get_logger().info('md: {}'.format(self.md.data))
         
     # on receiving status message, save it to global
     def state_callback(self,msg):
@@ -239,12 +239,12 @@ class FenswoodDroneController(Node):
     def linear_move_x(self,linx):
         self.last_twist.linear.x =linx
         self.target_twist_pub.publish(self.last_twist)
-        self.get_logger().info('Set drone to {}'.format(linx))
+        self.get_logger().info('linear y set to {}'.format(linx))
 
     def linear_move_y(self,liny):
         self.last_twist.linear.y =liny
         self.target_twist_pub.publish(self.last_twist)
-        self.get_logger().info('Set drone to {}'.format(liny)) 
+        self.get_logger().info('linear y set to {}'.format(liny)) 
 
     def state_transition(self):
         if self.control_state =='init':
@@ -271,7 +271,7 @@ class FenswoodDroneController(Node):
                 self.takeoff(20.0)
                 self.get_logger().info('Takeoff request sent.')
                 return('climbing')
-            elif self.state_timer > 300:                # timeout
+            elif self.state_timer > 400:                # timeout
                 self.get_logger().error('Failed to arm')
                 return('exit')
             else:
@@ -315,6 +315,8 @@ class FenswoodDroneController(Node):
                         break
                     else:
                         self.get_logger().info('Target error {},{}'.format(d_lat,d_lon))
+            
+            self.flyto(51.422145, -2.668130,self.init_alt - 30.0)
             if fail==1:
                 return('RTH')
             else:
@@ -325,8 +327,8 @@ class FenswoodDroneController(Node):
         elif self.control_state == 'on_way2':
             # self.md.data= 'stand by'
             self.get_logger().info('Request sent for stand by mode.')
-            self.yaw(-0.90)
-            for try_yaw in range(120):
+            self.yaw(-1.0)
+            for try_yaw in range(100):
                 self.wait_for_new_status()
                 self.get_logger().info('yaw {}'.format(self.last_twist.angular.z))
 
@@ -334,32 +336,38 @@ class FenswoodDroneController(Node):
             for try_yaw in range(3):
                 self.wait_for_new_status()
                 self.get_logger().info('yaw {}'.format(self.last_twist.angular.z))
-
-            for try_move in range(500):
+            
+            strt_flag = False
+            landing = False
+            for try_move in range(1000):
                 self.wait_for_new_status()
 
-                r_dir = self.red.data.split()
-                y_dir = self.yellow.data.split()
-
                 
-                try:
+                if self.red.data != '':
+                    r_dir = self.red.data.split()
+                    y_dir = self.yellow.data.split()
+                
                     if r_dir[1] == '-2' or r_dir[1] == '2': 
                         self.linear_move_y(0.0)
-                        # self.get_logger().info('ready to land, waiting user confirmation')
+                        strt_flag = True
+                        
                         
                     elif r_dir[1] == '-1' :
                         self.linear_move_y(1.0)
                     elif r_dir[1] == '1' :
                         self.linear_move_y(-1.0)
-
-                except:
+        
+                if strt_flag == True:
                     current_coor=(self.last_pos.latitude, self.last_pos.longitude)
                     dist=geopy.distance.geodesic(Area_of_Interest, current_coor).m
-                    if dist>45.0 and dist<40.0:
+                    if dist>35.0:
                         self.linear_move_x(0.0)
+                        self.get_logger().info('Landing point reached, awaiting conformation')
+                        return('landing') 
+                        break
                     else:
                         self.linear_move_x(-2.0)
-                        self.linear_move_y(2.0)
+                        self.get_logger().info('Target error radius {}m'.format(dist))
 
                     # if r_dir[1] == '-1' :
                     #     if y_dir[1] =='-1':
@@ -396,28 +404,37 @@ class FenswoodDroneController(Node):
             #         self.linear_move(-5.0)
             #         self.get_logger().info('Target error radius {}m'.format(dist))
 
-            return('landing')            
+            # return('landing')            
 
         elif self.control_state == 'landing' or self.md.data== 'land':
             self.change_mode("LAND")
             self.get_logger().info('Request sent for land mode.')
 
         elif self.control_state == 'RTH' or self.md.data== 'rth':
-            self.get_logger().info('Request sent for rth mode.')
-            RTLwaypoints=waypoints[::-1]
-            self.flyto(RTLwaypoints[0][0],RTLwaypoints[0][1],self.init_alt - 30.0)
-            for waypoint in RTLwaypoints:
-                self.flyto(waypoint[0],waypoint[1],self.init_alt - 30.0)
-                for try_arrive in range(60):
-                    self.wait_for_new_status()
-                    d_lon = self.last_pos.longitude - self.last_target.pose.position.longitude
-                    d_lat = self.last_pos.latitude - self.last_target.pose.position.latitude
-                    self.get_logger().info('Target error {},{}'.format(d_lat,d_lon))
-                    if abs(d_lon) < 0.0001 and abs(d_lat) < 0.0001:
-                            self.get_logger().info('Close enough to target delta={},{}'.format(d_lat,d_lon))
-                            break
+           
+            # send command to request regular position updates
+            self.request_data_stream(33, 1000000)
+            self.request_data_stream(32, 1000000)
+            self.request_data_stream(30, 1000000)
+            self.get_logger().info('Requested position stream')
+            # change mode to GUIDED
+            # self.change_mode("RTL")
             self.change_mode("RTL")
-            return('exit')
+            self.get_logger().info('Request sent for rth mode.')
+            # RTLwaypoints=waypoints[::-1]
+            # self.flyto(RTLwaypoints[0][0],RTLwaypoints[0][1],self.init_alt - 30.0)
+            # for waypoint in RTLwaypoints:
+            #     self.flyto(waypoint[0],waypoint[1],self.init_alt - 30.0)
+            #     for try_arrive in range(80):
+            #         self.wait_for_new_status()
+            #         d_lon = self.last_pos.longitude - self.last_target.pose.position.longitude
+            #         d_lat = self.last_pos.latitude - self.last_target.pose.position.latitude
+            #         self.get_logger().info('Target error {},{}'.format(d_lat,d_lon))
+            #         if abs(d_lon) < 0.0001 and abs(d_lat) < 0.0001:
+            #                 self.get_logger().info('Close enough to target delta={},{}'.format(d_lat,d_lon))
+            #                 break
+            # self.change_mode("RTL")
+            # return('exit')
 
     def run(self):
 
