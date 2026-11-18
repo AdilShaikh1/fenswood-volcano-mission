@@ -7,7 +7,10 @@ services:
     command: ros2 launch fenswood_drone_controller controller_finite_state.launch.xml
 
   simhost:
-    image: uobflightlabstarling/starling-sim-iris-ap-fenswood:latest
+    # later images fail PreArm 'Gyros not calibrated'; v0.0.2 predates the sensor payload
+    image: uobflightlabstarling/starling-sim-iris-ap-fenswood:v0.0.2@sha256:3384af2d7fb12aab0d8b23921a7e0bb0ebbdb38a14c7ed5f9a7a847057de2153
+    # simhost and sitl look each other up at start; whichever starts second exits, so retry
+    restart: on-failure
     environment:
       - AP_SITL_HOST=sitl
       - SPAWN_TARGET_ANNULUS_LOC_X=-150
@@ -17,6 +20,8 @@ services:
 
   sitl:
     image: uobflightlabstarling/starling-sim-ardupilot-copter:v0.0.8
+    # same mutual start-up lookup as simhost
+    restart: on-failure
     environment:
       - AP_USE_GAZEBO=true
       - AP_HOME=51.4233628,-2.671671,100.0,0

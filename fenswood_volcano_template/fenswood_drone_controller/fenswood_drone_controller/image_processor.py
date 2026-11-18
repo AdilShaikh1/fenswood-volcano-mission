@@ -89,7 +89,7 @@ class ImageProcessor(Node):
         upper_red = np.array([180,255,255]) 
 
         # Threshold the HSV image using inRange function to get only red colors
-        self.y_mask = cv2.inRange(self.hsv_image, upper_yellow , upper_yellow)
+        self.y_mask = cv2.inRange(self.hsv_image, lower_yellow, upper_yellow)
         self.r_mask = cv2.inRange(self.hsv_image, lower_red, upper_red)
         
         self.r_alert = '' #(where you should go [space] where you are) this is in string data type not a list
