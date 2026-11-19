@@ -19,12 +19,11 @@ class FailSafe(Node):
         self.md_publisher_ = self.create_publisher(String, 'failsafe_md', 10)
         self.md = String()
         self.md.data = "stand by"
-        self.md_pub()
         self.br = CvBridge()
+        # created once here: creating them per message or mode change stacked more timers for the whole run
+        self.md_timer_ = self.create_timer(10, self.md_timer_callback)
+        self.img_timer_ = self.create_timer(1, self.img_timer_callback)
     
-    def md_pub(self):
-       self.md_timer_ = self.create_timer(10, self.md_timer_callback) 
-
     def md_timer_callback(self): 
         self.md_publisher_.publish(self.md)
         # self.get_logger().info('md: {}'.format(self.md.data))
@@ -54,8 +53,6 @@ class FailSafe(Node):
     def failsafe_callback(self,msg):
         if self.md.data != msg.data:
             self.md.data = msg.data
-            self.md_pub()
-        self.img_timer_ = self.create_timer(1, self.img_timer_callback) 
         # self.img_pub_()
         # if self.md.data == 'stand by':
         #     self.img_publisher_.publish(self.br.cv2_to_imgmsg(cv2.imread("/ros_ws/src/fenswood_drone_controller/images/Standby.png", cv2.IMREAD_COLOR)))
