@@ -55,6 +55,9 @@ STATUS_SPIN_TIMEOUT_S = 0.1
 # camera tilt for the search: at the default 0.78 rad the red blob was 396 px (threshold 400); looking down it is ~1979 px
 CAMERA_TILT_DOWN_RAD = 1.57
 
+# yaw duration: the 2022 loop lasted about 3 s (~30 ms per pass) and ArduPilot drops a velocity setpoint after about 3 s
+YAW_DURATION_S = 3.0
+
 #the coordinates
 # Takeoff#
 Take_Off = (-2.6714965, 51.4234019)
@@ -349,7 +352,8 @@ class FenswoodDroneController(Node):
                 self.get_logger().info('Camera tilt command {} rad'.format(CAMERA_TILT_DOWN_RAD))
                 self.wait_for_new_status()
             self.yaw(-1.0)
-            for try_yaw in range(100):
+            yaw_end_time = time.monotonic() + YAW_DURATION_S
+            while time.monotonic() < yaw_end_time:
                 self.wait_for_new_status()
                 self.get_logger().info('yaw {}'.format(self.last_twist.angular.z))
 

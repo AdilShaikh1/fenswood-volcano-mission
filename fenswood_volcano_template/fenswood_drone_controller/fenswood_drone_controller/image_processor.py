@@ -17,6 +17,9 @@ class ImageProcessor(Node):
         super().__init__('image_processor')
         
         self.img = None
+        self.r_mask = None  # set by the first frame; the mask timer waits for it
+        self.r_alert = ''
+        self.y_alert = ''
     
         self.img_publisher_ = self.create_publisher(Image, 'video_frames', 10)
         self.red_publisher_ = self.create_publisher(String, 'red_zone_alert', 10)
@@ -48,14 +51,9 @@ class ImageProcessor(Node):
     def start(self):
         # set up subscriber for image
         state_sub = self.create_subscription(Image, '/vehicle_1/camera/image_raw', self.image_callback, 10)
-        
-    def img_pub_(self):
+        # created once here: creating them per frame stacked three new 20 Hz timers on every image
         self.img_timer_ = self.create_timer(0.05, self.timer_callback)
-
-    def red_pub_(self):
         self.red_timer_ = self.create_timer(0.05, self.red_zone_timer_callback)
-
-    def yellow_pub_(self):
         self.yellow_timer_ = self.create_timer(0.05, self.yellow_zone_timer_callback)
 
        
@@ -69,8 +67,9 @@ class ImageProcessor(Node):
         yellow_zone.data = self.y_alert
         self.yellow_publisher_.publish(yellow_zone)
 
-    def timer_callback(self): 
-        
+    def timer_callback(self):
+        if self.r_mask is None:
+            return  # no frame received yet
         # self.get_logger().info('Got an image of {} '.format(type(self.img)))
         # RGB_img = cv2.cvtColor(self.mask, cv2.COLOR_BGR2RGB)
         self.img_publisher_.publish(self.br.cv2_to_imgmsg(self.r_mask))
@@ -127,9 +126,6 @@ class ImageProcessor(Node):
         # can do OpenCV stuff on img now
         shp = self.img.shape # just get the size
         # self.get_logger().info('red zone: {}'.format(self.r_alert))
-        self.img_pub_()
-        self.red_pub_()
-        self.yellow_pub_()
                     
 
 def main(args=None):
