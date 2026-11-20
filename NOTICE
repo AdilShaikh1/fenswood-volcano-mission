@@ -1,0 +1,10 @@
+The mission code in this repository is MIT licensed (see LICENSE).
+
+The fenswood_volcano_template base (its tutorial, README, example controllers, compose files and the
+fenswood_drone_controller package scaffold) comes from the Fenswood Volcano template by Arthur Richards for the
+University of Bristol Group Project in Aerial Robotics. Its source is at
+https://github.com/arthurrichards77/fenswood_volcano_template.
+
+That template is published without a licence, so the MIT licence in this repository does not cover it. The
+container images the compose files pull are the University of Bristol Flight Lab's Starling images
+(https://github.com/StarlingUAS/ProjectStarling) and keep their own terms.
