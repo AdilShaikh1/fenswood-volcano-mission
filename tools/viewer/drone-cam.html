@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drone Camera</title>
+<style>
+  :root { --bg: #111; --fg: #eee; --muted: #999; --ok: #4caf50; --bad: #e57373; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  #status { color: var(--muted); margin-bottom: 12px; }
+  #status.ok { color: var(--ok); } #status.bad { color: var(--bad); }
+  img { width: 100%; max-width: 960px; height: auto; display: block; background: #000; }
+</style>
+</head>
+<body>
+<h1>Onboard camera <span id="frames"></span></h1>
+<div id="status">connecting to rosbridge on ws://localhost:9090...</div>
+<img id="cam" alt="Live onboard camera of the simulated drone">
+<script>
+// Streams /vehicle_1/camera/image_raw/compressed through the stack's rosbridge (port 9090) using the plain
+// rosbridge v2 protocol. Open this file in a browser while the simulator stack is running.
+const ROSBRIDGE_URL = "ws://localhost:9090";
+const CAMERA_TOPIC = "/vehicle_1/camera/image_raw/compressed";
+const RECONNECT_DELAY_MS = 2000;
+const statusElement = document.getElementById("status");
+const cameraElement = document.getElementById("cam");
+const frameCountElement = document.getElementById("frames");
+let frameCount = 0;
+let previousFrameUrl = null;
+
+// This rosbridge version sends uint8[] as a JSON number array; newer ones send base64. Accept both.
+function toBytes(data) {
+  return Array.isArray(data) ? Uint8Array.from(data) : Uint8Array.from(atob(data), (character) => character.charCodeAt(0));
+}
+
+function connect() {
+  const socket = new WebSocket(ROSBRIDGE_URL);
+  socket.onopen = () => {
+    statusElement.textContent = "connected"; statusElement.className = "ok";
+    // No throttle_rate or queue_length: this rosbridge version sends nothing when either is set.
+    socket.send(JSON.stringify({ op: "subscribe", topic: CAMERA_TOPIC, type: "sensor_msgs/msg/CompressedImage" }));
+  };
+  socket.onclose = () => {
+    statusElement.textContent = `disconnected, retrying in ${RECONNECT_DELAY_MS / 1000} s`;
+    statusElement.className = "bad";
+    setTimeout(connect, RECONNECT_DELAY_MS);
+  };
+  socket.onmessage = (event) => {
+    const packet = JSON.parse(event.data);
+    if (packet.op !== "publish" || packet.topic !== CAMERA_TOPIC) return;
+    const frameUrl = URL.createObjectURL(new Blob([toBytes(packet.msg.data)], { type: "image/jpeg" }));
+    cameraElement.src = frameUrl;
+    if (previousFrameUrl) URL.revokeObjectURL(previousFrameUrl);   // free the last frame's blob
+    previousFrameUrl = frameUrl;
+    frameCountElement.textContent = `(frames: ${++frameCount})`;
+  };
+}
+connect();
+</script>
+</body>
+</html>
