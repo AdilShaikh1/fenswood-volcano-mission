@@ -2,7 +2,7 @@
 
 <p align="center"><strong>A ROS&nbsp;2 drone mission that flies a survey corridor, finds the volcano's hot zones with its camera and lands clear&nbsp;of&nbsp;them.</strong></p>
 
-<p align="center">It runs in simulation with ArduPilot SITL, MAVROS and Gazebo in Docker.<br>The mission code comes from the University of Bristol Group Project in Aerial Robotics (2022) and flies again in&nbsp;the&nbsp;2022&nbsp;simulator.</p>
+<p align="center">It runs in simulation with ArduPilot SITL, MAVROS and Gazebo in Docker.<br>The mission code comes from the University of Bristol Group Project in Aerial Robotics (2022) and flies again in&nbsp;the April&nbsp;2022&nbsp;simulator&nbsp;release.</p>
 
 <p align="center"><a href="#what-it-does">What&nbsp;it&nbsp;does</a>&nbsp;&nbsp; &nbsp;&nbsp;<a href="#install">Install</a>&nbsp;&nbsp; &nbsp;&nbsp;<a href="#usage">Usage</a>&nbsp;&nbsp; &nbsp;&nbsp;<a href="#common-questions">Common&nbsp;questions</a>&nbsp;&nbsp; &nbsp;&nbsp;<a href="#known-limits">Known&nbsp;limits</a>&nbsp;&nbsp; &nbsp;&nbsp;<a href="#license">License</a></p>
 
@@ -67,11 +67,11 @@ To watch the drone, use the two tools in `tools/viewer/`:
 
 ## Common questions
 
-**The controller says `Failed to arm`.** It gives the operator about 400 seconds in `arming` to send `take off`. Restart the controller with `docker compose -f docker-compose-finite-state.yml restart controller` and send the command once the log shows `arming` again.
+**The controller says `Failed to arm`.** It gives the operator about 400 steps in `arming`, roughly 6.7 minutes, to send `take off`. Restart the controller with `docker compose -f docker-compose-finite-state.yml restart controller` and send the command once the log shows `arming` again.
 
 **`sitl` or `simhost` restarted once at start-up.** That's expected. Each looks the other up by name when it starts and exits if the other isn't running yet, so the compose file restarts them until both are up.
 
-**Why is the simulator image pinned to an old version?** Later `starling-sim-iris-ap-fenswood` images fail ArduPilot's pre-arm check with `Gyros not calibrated`. Version v0.0.2 (April 2022) predates the sensor payload added later and passes.
+**Why is the simulator image pinned to an old version?** The current `latest` `starling-sim-iris-ap-fenswood` image (December 2022) fails ArduPilot's pre-arm check with `Gyros not calibrated`. Version v0.0.2 (April 2022) predates the sensor payload added later and passes. The images in between weren't tested.
 
 **`ros2 topic echo` inside a container shows nothing.** `ros2 topic echo` and `ros2 topic hz` don't work reliably through `docker exec` in these containers. `ros2 topic pub`, used for the take-off, works. Use `tools/viewer/topic_rates.py` (below) or rosbridge on port 9090 instead.
 
@@ -81,7 +81,7 @@ To watch the drone, use the two tools in `tools/viewer/`:
 
 - The controller log shows `Arming successful`, `on_way1`, four `Close enough to target` lines, `on_way2`, `Camera tilt command 1.57 rad`, `Landing point reached` and `Request sent for land mode`.
 - The drone ends up on the ground outside the red and yellow zones. In the reference runs it landed and disarmed at about 51.42213, -2.66816.
-- On the corridor and over the survey area, `topic_rates.py` reports about 20 Hz on `/red_zone_alert`, about 1 Hz on `/status_frames` and about 0.2 Hz on `/failsafe_md`. The controller node exits some time after landing. Before the corridor and after that exit, `/failsafe_md` runs at about 0.1 Hz, which comes from the failsafe node alone.
+- `topic_rates.py` reports about 20 Hz on `/red_zone_alert` and about 1 Hz on `/status_frames` throughout. On the corridor and over the survey area it reports about 0.2 Hz on `/failsafe_md`. The controller node stops about 10 to 12 minutes after it starts, which is after the landing in a normal run. Before the corridor and after the controller stops, `/failsafe_md` runs at about 0.1 Hz, which comes from the failsafe node alone.
 
 ## Tests
 
@@ -91,6 +91,8 @@ There are no automated tests. The check is a full simulated mission plus a rate 
 docker compose -f docker-compose-finite-state.yml cp ../tools/viewer/topic_rates.py controller:/tmp/topic_rates.py
 docker compose -f docker-compose-finite-state.yml exec controller bash -c "source /opt/ros/foxy/setup.bash && python3 /tmp/topic_rates.py 30"
 ```
+
+Run both commands from `fenswood_volcano_template/`. The `30` is the measuring window in seconds.
 
 ## Known limits
 
@@ -110,8 +112,9 @@ fenswood_volcano_template/
   docker-compose-finite-state.yml   the mission stack (simulator, SITL, MAVROS, rosbridge, controller)
   fenswood_drone_controller/        the ROS 2 package: the three mission nodes, PathPlan2.py, launch files, Dockerfile
   POLYGONS.*                        a copy of the polygons the planner writes (same geometry; the mission doesn't read it)
-  tutorial/, README.md, other compose files and controllers   the original course template, unchanged
+  tutorial/, README.md, other compose files   the original course template, unchanged
 tools/viewer/                       drone-cam.html, chase-cam.js and topic_rates.py for watching and checking a run
+docs/HANDOVER.md                    notes for the next maintainer: how the stack connects, what changed since 2022, pins, gotchas
 docs/media/                         the demo animation (animated WebP, 4× speed)
 ```
 
