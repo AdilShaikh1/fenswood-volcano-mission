@@ -8,6 +8,8 @@
 
 <p align="center"><img src="docs/media/demo.webp" alt="Split view of one simulated mission. Left, the Gazebo world with a chase camera on the drone as it climbs, flies the corridor and lands beside the yellow and red zones. Right, the drone's camera, which tilts down over the zones before landing." width="100%"></p>
 
+<p align="center">The animation runs at 4× speed. <a href="https://github.com/AdilShaikh1/fenswood-volcano-mission/releases/download/v1.0.0/fenswood-demo.mp4">Watch the full run in real time</a> (MP4, 2&nbsp;min&nbsp;40&nbsp;s).</p>
+
 ## What it does
 
 The scenario is a volcano survey at the Fenswood field site near Bristol. The drone takes off from a set point, climbs to 20 m and flies four waypoints through a corridor that avoids a no-fly zone. Over the survey area it tilts its camera down, finds the red hot zones by colour and moves clear of them, then lands outside the red and yellow zones.
@@ -114,6 +116,7 @@ fenswood_volcano_template/
   POLYGONS.*                        a copy of the polygons the planner writes (same geometry; the mission doesn't read it)
   tutorial/, README.md, other compose files   the original course template, unchanged
 tools/viewer/                       drone-cam.html, chase-cam.js and topic_rates.py for watching and checking a run
+CHANGELOG.md                        release notes
 docs/HANDOVER.md                    notes for the next maintainer: how the stack connects, what changed since 2022, pins, gotchas
 docs/media/                         the demo animation (animated WebP, 4× speed)
 ```
